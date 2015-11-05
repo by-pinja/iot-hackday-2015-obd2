@@ -1,6 +1,6 @@
 #ODB2 datalogger
 
-import odb
+import obd
 
 connection = obd.OBD()
 
