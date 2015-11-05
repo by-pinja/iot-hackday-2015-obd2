@@ -13,12 +13,13 @@ def getCarId(connection) :
 
 
 	
-def getValues(carId, connection) : 
-	request = connection.query(obd.commands.RPM)
+def getValues(connection,carId, command) : 
+	request = connection.query(obd.commands[command], force=True)
+
 	if request.is_null():
 		print("Could not get value")
 		return 
 		
 	print(request.value)
 
-	firebaseComm.send(str(carId), 'RPM', str(request.value))
+	firebaseComm.send(str(carId), command, str(request.value))
