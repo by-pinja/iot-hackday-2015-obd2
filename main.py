@@ -1,11 +1,13 @@
 #ODB2 datalogger
 
 import obd
+import firebaseComm
 
 connection = obd.OBD()
 
-while true:
-    request = connection.query(obd.commands.RPM)
+while True:
+    request = connection.query(obd.commands.RPM)  
 
-    if not r.is_null():
-        print(r.value)
+    if not request.is_null():
+        print(request.value)
+        firebaseComm.send('RPM', str(request.value))
