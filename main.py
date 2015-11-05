@@ -8,6 +8,7 @@ import os
 import configparser
 import argparse
 import time
+from firebase import firebase
 
 #Parse arguments
 argparser = argparse.ArgumentParser(description="Collect OBD2 data and send it to Firebase")
@@ -21,10 +22,14 @@ try:
 	config.read(args.config)
 except(Exception, e):
 	print(e)
+	
+#Initialize firebase connection
+fconn = firebase.FirebaseApplication('https://iot-hackday-2015-obd.firebaseio.com/#-K2MNiBPat6HFvMTPzvH|538e987b441a5745a2104b9327323650', None)
 
 #What to do when we receive a signal
 def signal_handler(signal, frame):
 	connection.close()
+	fconn.goOffline()
 	sys.exit(0)
 	
 #Register our signal handler
@@ -41,7 +46,7 @@ if not carId :
 while True:
 	for command, value in config.items('Collection'):
 		if value == "1":
-			obdReader.getValues(connection, carId, command)
+			obdReader.getValues(fconn, connection, carId, command)
 
 	time.sleep(1)
 	

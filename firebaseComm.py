@@ -1,7 +1,5 @@
-def send(id, key, values) :
-	from firebase import firebase
-	firebase = firebase.FirebaseApplication('https://iot-hackday-2015-obd.firebaseio.com/#-K2MNiBPat6HFvMTPzvH|538e987b441a5745a2104b9327323650', None)
-
+def send(fconn, id, key, values) :
 	print(values)
-	addr = '/'+id+'/'+key	
-	result = firebase.post(addr , values)
+	addr = '/'+id+'/'+key
+	result = fconn.post(addr , values)
+	#result = fconn.push(addr , values)

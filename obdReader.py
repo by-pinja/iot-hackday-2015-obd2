@@ -13,7 +13,7 @@ def getCarId(connection) :
 
 
 	
-def getValues(connection,carId, command) : 
+def getValues(fconn, connection,carId, command) : 
 	request = connection.query(obd.commands[command], force=True)
 
 	if request.is_null():
@@ -22,4 +22,4 @@ def getValues(connection,carId, command) :
 		
 	print(request.value)
 
-	firebaseComm.send(str(carId), command, str(request.value))
+	firebaseComm.send(fconn, str(carId), command, str(request.value))
