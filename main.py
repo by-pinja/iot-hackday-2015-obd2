@@ -1,15 +1,13 @@
 #ODB2 datalogger
 
 import obd
-import obdReader
 import signal
 import sys
-import os
 import configparser
 import argparse
 import time
 from firebase import firebase
-import json
+
 
 #Parse arguments
 argparser = argparse.ArgumentParser(description="Collect OBD2 data and send it to Firebase")
