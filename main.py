@@ -1,6 +1,7 @@
 #ODB2 datalogger
 
 import obd
+import firebaseComm
 import signal
 import sys
 import os
@@ -38,4 +39,5 @@ while True:
 			request = connection.query(obd.commands[command])
 			if not request.is_null():
 				print(request.value)
+				firebaseComm.send(command, str(request.value))
 	time.sleep(1)
