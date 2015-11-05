@@ -36,7 +36,7 @@ connection = obd.OBD(config.get('Connection', 'serial_port'))
 while True:
 	for command, value in config.items('Collection'):
 		if value == "1":
-			request = connection.query(obd.commands[command])
+			request = connection.query(obd.commands[command], force=True)
 			if not request.is_null():
 				print(request.value)
 				firebaseComm.send(command, str(request.value))
