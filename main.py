@@ -9,6 +9,7 @@ import configparser
 import argparse
 import time
 from firebase import firebase
+import json
 
 #Parse arguments
 argparser = argparse.ArgumentParser(description="Collect OBD2 data and send it to Firebase")
@@ -22,36 +23,146 @@ try:
 	config.read(args.config)
 except(Exception, e):
 	print(e)
-	
+
+activeCommand = ''
+
 #Initialize firebase connection
-fconn = firebase.FirebaseApplication('https://iot-hackday-2015-obd.firebaseio.com/#-K2MNiBPat6HFvMTPzvH|538e987b441a5745a2104b9327323650', None)
+fconn = firebase.FirebaseApplication('https://iot-hackday-obd2.firebaseio.com/')
+
+asyncConnection = obd.Async(config.get('Connection', 'serial_port'))
+
+list = []
+for command in asyncConnection.supported_commands:
+	list.append(command.name)
+#fconn.patch('', {'SUPPORTED_COMMANDS':list})
 
 #What to do when we receive a signal
 def signal_handler(signal, frame):
-	connection.close()
-	fconn.goOffline()
+	stopSession()
+
+	asyncConnection.close()
 	sys.exit(0)
 	
 #Register our signal handler
 signal.signal(signal.SIGINT, signal_handler)
 
-#Connect OBD adapter
-connection = obd.OBD(config.get('Connection', 'serial_port'))
+def resetActiveCommand():
+	activeCommand = ''
 
-carId = obdReader.getCarId(connection)
-if not carId :
-	print("Unable to read car ID")
-	carId = 'TestCar'
+	fconn.patch('', {'ACTIVE_COMMAND':activeCommand})
 
-while True:
-	for command, value in config.items('Collection'):
-		if value == "1":
-			obdReader.getValues(fconn, connection, carId, command)
+def valueReceived(response):
+	if response.command.name == 'STATUS':
+		return
+
+	if response.value == None:
+		response.value = 0
+
+	addr = 'LIVE_DATA/'+ response.command.name
+	data = {'value':response.value, 'unit':response.unit,'time':response.time}
+	fconn.post(addr , data)
+
+def dashboardValueReceived(response):
+
+	if response.command == None:
+		return
+
+	if response.value == None:
+		response.value = 0
+
+	addr = 'DASHBOARD/'
+	data = {response.command.name:response.value}
+	fconn.patch(addr, data)
+
+
+def stopSession():
+
+	if activeCommand == 'ERROR_CODES' or activeCommand == 'ERROR_CODE_RESET' or activeCommand == 'ERROR_CODE_FREEZE_FRAME':
+		return
+
+	asyncConnection.stop()
+	asyncConnection.unwatch_all()
+
+def readErrorCodes():
+	global asyncConnection
+	asyncConnection.close()
 
 	time.sleep(1)
-	
-	
-	
-	
-	
-		
+	connection = obd.OBD(config.get('Connection', 'serial_port'))
+	r = connection.query(obd.commands.GET_DTC)
+	connection.close()
+	time.sleep(1)
+	asyncConnection = obd.Async(config.get('Connection', 'serial_port'))
+
+	addr = 'ERROR_CODES/'
+	data = r.value
+	print(data)
+	if data == None:
+		data = {'time':str(int(time.time())), 'DTCs':['None']}
+	else:
+		data = {'time':str(int(time.time())), 'DTCs':data}
+	fconn.post(addr , data)
+	resetActiveCommand()
+
+def resetErrorCodes():
+	global asyncConnection
+	asyncConnection.close()
+
+	time.sleep(1)
+	connection = obd.OBD(config.get('Connection', 'serial_port'))
+	connection.query(obd.commands.CLEAR_DTC)
+	connection.close()
+	time.sleep(1)
+	asyncConnection = obd.Async(config.get('Connection', 'serial_port'))
+	readErrorCodes()
+
+def readFreezeErrorCodes():
+	print('NOT IMPLEMENTED!')
+	resetActiveCommand()
+
+def startSession():
+	#read PID configuration
+	sessionConfig = fconn.get('LIVE_PID_CODES', '')
+
+	print(sessionConfig)
+	for key,  pids in sessionConfig.items():
+		for pid, command in pids.items():
+			asyncConnection.watch(obd.commands[command], callback=valueReceived)
+
+	asyncConnection.start()
+
+
+def startDashboard():
+	print('startDashboard')
+
+	asyncConnection.watch(obd.commands.FUEL_LEVEL, callback=dashboardValueReceived)
+	asyncConnection.watch(obd.commands.RPM, callback=dashboardValueReceived)
+	asyncConnection.watch(obd.commands.COOLANT_TEMP, callback=dashboardValueReceived)
+	asyncConnection.watch(obd.commands.SPEED, callback=dashboardValueReceived)
+	asyncConnection.watch(obd.commands.INTAKE_TEMP, callback=dashboardValueReceived)
+	asyncConnection.watch(obd.commands.OIL_TEMP, callback=dashboardValueReceived)
+
+	asyncConnection.start()
+
+startDashboard()
+
+while True:
+	newCommand = fconn.get('','ACTIVE_COMMAND')
+
+	if activeCommand != newCommand:
+		stopSession()
+		activeCommand = newCommand
+
+		if activeCommand == 'ERROR_CODES':
+			readErrorCodes()
+		elif activeCommand == 'ERROR_CODE_RESET':
+			resetErrorCodes()
+		elif activeCommand == 'ERROR_CODE_FREEZE_FRAME':
+			readFreezeErrorCodes()
+		elif activeCommand == 'LIVE_DATA':
+			startSession()
+		else:
+			#activeCommand == 'DASHBOARD'
+			startDashboard()
+
+
