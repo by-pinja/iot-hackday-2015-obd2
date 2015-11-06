@@ -122,10 +122,13 @@ def startSession():
 	#read PID configuration
 	sessionConfig = fconn.get('LIVE_PID_CODES', '')
 
-	print(sessionConfig)
-	for key,  pids in sessionConfig.items():
-		for pid, command in pids.items():
-			asyncConnection.watch(obd.commands[command], callback=valueReceived)
+	if sessionConfig != None:
+		for key,  pids in sessionConfig.items():
+			if pids == None:
+				continue
+				
+			for pid, command in pids.items():
+				asyncConnection.watch(obd.commands[command], callback=valueReceived)
 
 	asyncConnection.start()
 
